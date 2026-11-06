@@ -27,7 +27,7 @@ func allocateIOVecs(options []string) []C.struct_iovec {
 	return out
 }
 
-func mount(device, target, mType string, flag uintptr, data string) error {
+func mount(device, target, mType string, flag, _ uintptr, data string) error {
 	isNullFS := false
 
 	xs := strings.Split(data, ",")
