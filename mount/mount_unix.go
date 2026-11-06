@@ -14,8 +14,8 @@ import (
 // Options must be specified like the mount or fstab unix commands:
 // "opt1=val1,opt2=val2". See flags.go for supported option flags.
 func Mount(device, target, mType, options string) error {
-	flag, data := parseOptions(options)
-	return mount(device, target, mType, uintptr(flag), data)
+	flag, propFlag, data := parseOptions(options)
+	return mount(device, target, mType, uintptr(flag), uintptr(propFlag), data)
 }
 
 // Unmount lazily unmounts a filesystem on supported platforms, otherwise does

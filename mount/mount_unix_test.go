@@ -24,7 +24,7 @@ func ensureUnmount(t *testing.T, mnt string) {
 func TestMountOptionsParsing(t *testing.T) {
 	options := "noatime,ro,noexec,size=10k"
 
-	flag, data := parseOptions(options)
+	flag, propFlag, data := parseOptions(options)
 
 	if data != "size=10k" {
 		t.Fatalf("Expected size=10 got %s", data)
@@ -34,6 +34,40 @@ func TestMountOptionsParsing(t *testing.T) {
 
 	if flag != expected {
 		t.Fatalf("Expected %d got %d", expected, flag)
+	}
+	if propFlag != 0 {
+		t.Fatalf("Expected no propagation flags, got %d", propFlag)
+	}
+}
+
+func TestParseOptionsPropagation(t *testing.T) {
+	tests := []struct {
+		options  string
+		flag     int
+		propFlag int
+		data     string
+	}{
+		{options: "bind", flag: BIND},
+		{options: "rbind", flag: RBIND},
+		{options: "bind,private", flag: BIND, propFlag: PRIVATE},
+		{options: "bind,rprivate", flag: BIND, propFlag: RPRIVATE},
+		{options: "bind,rslave", flag: BIND, propFlag: RSLAVE},
+		{options: "bind,rshared", flag: BIND, propFlag: RSHARED},
+		{options: "bind,runbindable", flag: BIND, propFlag: RUNBINDABLE},
+		{options: "rbind,private", flag: RBIND, propFlag: PRIVATE},
+		{options: "rbind,rprivate", flag: RBIND, propFlag: RPRIVATE},
+		{options: "rbind,rslave", flag: RBIND, propFlag: RSLAVE},
+		{options: "rprivate", propFlag: RPRIVATE},
+		{options: "bind,ro,rslave,size=64k", flag: BIND | RDONLY, propFlag: RSLAVE, data: "size=64k"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.options, func(t *testing.T) {
+			flag, propFlag, data := parseOptions(tc.options)
+			if flag != tc.flag || propFlag != tc.propFlag || data != tc.data {
+				t.Errorf("parseOptions(%q) = (%#x, %#x, %q), want (%#x, %#x, %q)",
+					tc.options, flag, propFlag, data, tc.flag, tc.propFlag, tc.data)
+			}
+		})
 	}
 }
 
