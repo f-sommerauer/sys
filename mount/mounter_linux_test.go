@@ -3,6 +3,7 @@ package mount
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -213,4 +214,81 @@ func clean(v string) string {
 func has(m map[string]struct{}, key string) bool {
 	_, ok := m[key]
 	return ok
+}
+
+// TestMountBindRecursivePropagation checks that a recursive propagation
+// option does not turn a bind mount into a recursive bind mount.
+func TestMountBindRecursivePropagation(t *testing.T) {
+	if os.Getuid() != 0 {
+		t.Skip("root required")
+	}
+
+	tests := []struct {
+		options    string
+		wantSubmnt bool
+	}{
+		{"bind", false},
+		{"bind,private", false},
+		{"bind,rprivate", false},
+		{"bind,rslave", false},
+		{"bind,rshared", false},
+		{"bind,runbindable", false},
+		{"rbind", true},
+		{"rbind,private", true},
+		{"rbind,rprivate", true},
+		{"rbind,rslave", true},
+		{"rbind,rshared", true},
+		{"rbind,runbindable", true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.options, func(t *testing.T) {
+			// The source must be shared for slave propagation to be valid.
+			source := t.TempDir()
+			if err := Mount("tmpfs", source, "tmpfs", "shared"); err != nil {
+				t.Fatal(err)
+			}
+			defer ensureUnmount(t, source)
+
+			sub := filepath.Join(source, "sub")
+			if err := os.Mkdir(sub, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := Mount("tmpfs", sub, "tmpfs", ""); err != nil {
+				t.Fatal(err)
+			}
+			defer ensureUnmount(t, sub)
+
+			target := t.TempDir()
+			if err := Mount(source, target, "none", tc.options); err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := RecursiveUnmount(target); err != nil {
+					t.Error(err)
+				}
+			}()
+
+			mounted, err := mountinfo.Mounted(filepath.Join(target, "sub"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if mounted != tc.wantSubmnt {
+				t.Errorf("Mount(%q): submount present in target = %v, want %v", tc.options, mounted, tc.wantSubmnt)
+			}
+
+			if err := RecursiveUnmount(target); err != nil {
+				t.Fatal(err)
+			}
+			if !tc.wantSubmnt {
+				srcSubMounted, err := mountinfo.Mounted(sub)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !srcSubMounted {
+					t.Errorf("Mount(%q): unmounting target also unmounted source submount", tc.options)
+				}
+			}
+		})
+	}
 }

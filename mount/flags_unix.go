@@ -113,27 +113,40 @@ func MergeTmpfsOptions(options []string) ([]string, error) {
 	return newOptions, nil
 }
 
-// Parse fstab type mount options into mount() flags
-// and device specific data
-func parseOptions(options string) (int, string) {
-	var (
-		flag int
-		data []string
-	)
+// parseOptions parses fstab type mount options into mount() flags,
+// propagation flags, and device specific data.
+//
+// Propagation options (private, rprivate, shared, rshared, slave, rslave,
+// unbindable, runbindable) are returned separately from the other flags,
+// because their recursive variants include MS_REC, which has a different
+// meaning in the initial mount call (it turns bind into rbind).
+func parseOptions(options string) (flag, propFlag int, data string) {
+	var dataOpts []string
 
 	for _, o := range strings.Split(options, ",") {
 		// If the option does not exist in the flags table or the flag
 		// is not supported on the platform,
 		// then it is a data value for a specific fs type
-		if f, exists := flags[o]; exists && f.flag != 0 {
-			if f.clear {
-				flag &= ^f.flag
-			} else {
-				flag |= f.flag
-			}
+		f, exists := flags[o]
+		if !exists || f.flag == 0 {
+			dataOpts = append(dataOpts, o)
+			continue
+		}
+		target := &flag
+		if isPropagationOption(o) {
+			target = &propFlag
+		}
+		if f.clear {
+			*target &= ^f.flag
 		} else {
-			data = append(data, o)
+			*target |= f.flag
 		}
 	}
-	return flag, strings.Join(data, ",")
+	return flag, propFlag, strings.Join(dataOpts, ",")
+}
+
+// isPropagationOption reports whether o changes the propagation type of a
+// mount. bind and rbind are not propagation options.
+func isPropagationOption(o string) bool {
+	return propagationFlags[o] && o != "bind" && o != "rbind"
 }

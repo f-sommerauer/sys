@@ -61,13 +61,13 @@ func MakeMount(mnt string) error {
 		return nil
 	}
 
-	return mount(mnt, mnt, "none", uintptr(BIND), "")
+	return mount(mnt, mnt, "none", uintptr(BIND), 0, "")
 }
 
-func ensureMountedAs(mnt string, flags int) error {
+func ensureMountedAs(mnt string, propFlags int) error {
 	if err := MakeMount(mnt); err != nil {
 		return err
 	}
 
-	return mount("", mnt, "none", uintptr(flags), "")
+	return mount("", mnt, "none", 0, uintptr(propFlags), "")
 }
