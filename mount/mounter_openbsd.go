@@ -45,7 +45,7 @@ func createUfsArgs(device string, readOnly bool) unsafe.Pointer {
 	return unsafe.Pointer(out)
 }
 
-func mount(device, target, mType string, flag uintptr, data string) error {
+func mount(device, target, mType string, flag, _ uintptr, data string) error {
 	readOnly := flag&RDONLY != 0
 
 	var fsArgs unsafe.Pointer

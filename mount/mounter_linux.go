@@ -27,7 +27,11 @@ func isremount(device string, flags uintptr) bool {
 	}
 }
 
-func mount(device, target, mType string, flags uintptr, data string) error {
+// mount mounts device on target. Propagation options are passed separately in
+// propFlags and applied in a second mount(2) call, because MS_REC in flags
+// requests a recursive bind (rbind) whereas MS_REC in propFlags requests a
+// recursive propagation change (e.g. rprivate).
+func mount(device, target, mType string, flags, propFlags uintptr, data string) error {
 	oflags := flags &^ ptypes
 	if !isremount(device, flags) || data != "" {
 		// Initial call applying all non-propagation flags for mount
@@ -44,13 +48,13 @@ func mount(device, target, mType string, flags uintptr, data string) error {
 		}
 	}
 
-	if flags&ptypes != 0 {
+	if propFlags&ptypes != 0 {
 		// Change the propagation type.
-		if err := unix.Mount("", target, "", flags&pflags, ""); err != nil {
+		if err := unix.Mount("", target, "", propFlags&pflags, ""); err != nil {
 			return &mountError{
 				op:     "remount",
 				target: target,
-				flags:  flags & pflags,
+				flags:  propFlags & pflags,
 				err:    err,
 			}
 		}

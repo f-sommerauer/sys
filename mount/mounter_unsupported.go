@@ -2,6 +2,6 @@
 
 package mount
 
-func mount(device, target, mType string, flag uintptr, data string) error {
+func mount(device, target, mType string, flag, _ uintptr, data string) error {
 	panic("cgo required on freebsd and openbsd")
 }
